@@ -1,109 +1,8 @@
 $(function () {
-    const configuration = {
-        lSize: {
-            lightWood: {
-                portrait: {
-                    zoomOut: {
-                        "image": "1007_DMA_Product Mockups_v2_1500px1.jpg",
-                        "bgWidth": 3000,
-                        "bgHeight": 3000,
-                        "paintWidth": 955,
-                        "paintHeight": 1342,
-                        "xPos": 1325,
-                        "yPos": 356
-                    },
-                    zoomIn: {
-                        "image": "1007_DMA_Product Mockups_v2_1500px2.jpg",
-                        "bgWidth": 3000,
-                        "bgHeight": 3000,
-                        "paintWidth": 1437,
-                        "paintHeight": 2021,
-                        "xPos": 778,
-                        "yPos": 442
-                    }
-                },
-                landscape: {
-                    zoomOut: {
-                        "image": "1007_DMA_Product Mockups_v2_1500px5.jpg",
-                        "bgWidth": 3000,
-                        "bgHeight": 3000,
-                        "paintWidth": 1344,
-                        "paintHeight": 956,
-                        "xPos": 1324,
-                        "yPos": 597
-                    },
-                    zoomIn: {
-                        "image": "1007_DMA_Product Mockups_v2_1500px6.jpg",
-                        "bgWidth": 3000,
-                        "bgHeight": 3000,
-                        "paintWidth": 2018,
-                        "paintHeight": 1440,
-                        "xPos": 632,
-                        "yPos": 445
-                    }
-                }
-            },
-            darkWood: {},
-            wineRed: {},
-            turquoiseWood: {},
-            whiteWood: {},
-            blackWood: {}
-        },
-        mSize: {
-            lightWood: {
-                portrait: {
-                    zoomOut: {
-                        "image": "1007_DMA_Product Mockups_v2_1500px3.jpg",
-                        "bgWidth": 3000,
-                        "bgHeight": 3000,
-                        "paintWidth": 639,
-                        "paintHeight": 899,
-                        "xPos": 1474,
-                        "yPos": 650
-                    },
-                    zoomIn: {
-                        "image": "1007_DMA_Product Mockups_v2_1500px4.jpg",
-                        "bgWidth": 3000,
-                        "bgHeight": 3000,
-                        "paintWidth": 960,
-                        "paintHeight": 1350,
-                        "xPos": 1132,
-                        "yPos": 530
-                    }
-                },
-                landscape: {
-                    zoomOut: {
-                        "image": "1007_DMA_Product Mockups_v2_1500px7.jpg",
-                        "bgWidth": 3000,
-                        "bgHeight": 3000,
-                        "paintWidth": 899,
-                        "paintHeight": 639,
-                        "xPos": 1442,
-                        "yPos": 850
-                    },
-                    zoomIn: {
-                        "image": "1007_DMA_Product Mockups_v2_1500px8.jpg",
-                        "bgWidth": 3000,
-                        "bgHeight": 3000,
-                        "paintWidth": 1347,
-                        "paintHeight": 958,
-                        "xPos": 807,
-                        "yPos": 829
-                    }
-                }
-            },
-            darkWood: {},
-            wineRed: {},
-            turquoiseWood: {},
-            whiteWood: {},
-            blackWood: {}
-        }
-    }
-
     /**
      * Python pop-like method.
      */
-    Object.prototype.pop = function() {
+    Object.prototype.pop = function () {
         for (let key in this) {
             if (!Object.hasOwnProperty.call(this, key)) continue;
             let result = this[key];
@@ -142,41 +41,54 @@ $(function () {
     }
 
     /**
+     * Enumerates array in pythonic way.
+     *
+     * @param {Iterable} it
+     * @param {Number} start
+     */
+    function* enumerate (it, start = 0) {
+        let i = start
+        for (const x of it) { yield [i++, x] }
+    }
+
+    /**
      * Asynchronously load foreground and background images, create canvas,
      * draw images with desired parameters and return Promise for result.
      *
-     * @param {String | Image | Promise} background
-     * @param {String | Image | Promise} foreground
+     * @param {Array<String | Image | Promise>} images
      * @param {Array<Number>} size
      * @param {Object} ctx
      * @param {Object} config
      * @return {Promise<String>}
      */
-    const fetchImage = (background, foreground, size, ctx, config) => {
+    const fetchImage = (
+        images,
+        size,
+        ctx,
+        config,
+    ) => {
         return new Promise((resolve, reject) => {
-            Promise.all([background, foreground].map((entry) => {
+            Promise.all(images.map((entry) => {
                 if (typeof entry === 'string')
                     // Expecting image url.
                     return loadImage(entry)
                 else if (typeof entry === 'object' && (!!entry['src'] || entry instanceof Promise))
                     // Expecting instance of Image object or Promise.
                     return entry
-                throw 'Invalid type of input object. Requires {String | Image}';
-
+                throw 'Invalid type of input object. Requires {String | Image | Promise}'
             })).then(
                 (images) => {
-                    const [bgImage, fgImage] = [images[0], images[1]]
+                    // Prepare transparent base.
+                    ctx.canvas.width = config.baseWidth
+                    ctx.canvas.height = config.baseHeight
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0)'
+                    ctx.fillRect(0, 0, config.width, config.height)
 
-                    ctx.canvas.width = config.bgWidth
-                    ctx.canvas.height = config.bgHeight
-                    ctx.drawImage(bgImage, 0, 0, config.bgWidth, config.bgHeight)
-                    ctx.drawImage(fgImage, config.xPos, config.yPos, config.paintWidth, config.paintHeight)
-
-                    try {
-                        resolve(canvasReadyCallback(ctx))
-                    } catch (e) {
-                        reject(e)
+                    for (const [i, img] of enumerate(images)) {
+                        const conf = config.images[i]
+                        ctx.drawImage(img, conf.xPos, conf.yPos, conf.width, conf.height)
                     }
+                    try { resolve(canvasReadyCallback(ctx)) } catch (e) { reject(e) }
                 }
             )
         })
@@ -190,35 +102,41 @@ $(function () {
      */
     const reScale = (size, config) => {
         const [width, height] = size
-        const [scale_w, scale_h] = [width / config.bgWidth, height / config.bgHeight]
+        const [scale_w, scale_h] = [width / config.baseWidth, height / config.baseHeight]
 
-        config.bgWidth = width
-        config.bgHeight = height
-        config.paintWidth = Math.ceil(scale_w * config.paintWidth)
-        config.paintHeight = Math.ceil(scale_h * config.paintHeight)
-        config.xPos = Math.ceil(scale_w * config.xPos)
-        config.yPos = Math.ceil(scale_h * config.yPos)
+        config.baseWidth = width
+        config.baseHeight = height
 
+        for (const value of config.images) {
+            value.xPos = Math.ceil(scale_w * value.xPos)
+            value.yPos = Math.ceil(scale_h * value.yPos)
+            value.width = Math.ceil(scale_w * value.width)
+            value.height = Math.ceil(scale_h * value.height)
+        }
         return config
     }
 
     /**
      * Create composition of two images and return promise on such composition.
      *
-     * @param {String | Image | Promise} background
-     * @param {String | Image | Promise} foreground
+     * @param {Array<String | Image | Promise>} images
      * @param {Array<Number>} size
      * @param {Object} config
      * @return {Object}
      */
-    const fetchCompositionImage = (background, foreground, size, config) => {
+    const fetchCompositionImage = (
+        images,
+        size,
+        config,
+    ) => {
         // Create new canvas.
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d');
         // Re-compute image size to desired resolution.
         const config_ = reScale(size, {...config})
+
         // Fetch image.
-        return fetchImage(background, foreground, size, ctx, config_)
+        return fetchImage(images, size, ctx, config_)
     }
 
 // Example
@@ -227,39 +145,64 @@ $(function () {
          * String feed solution.
          ********************************* */
         if (solution === 'string') {
-            const fgMockup = {portrait: "portrait.png", landscape: "landscape.png"}
-            const frame = "lightWood"
-
-            for (let size of ["lSize", "mSize"]) {
-                for (let zoom of ["zoomIn", "zoomOut"]) {
-                    for (let orientation of ["portrait", "landscape"]) {
-                        const fgSrc = fgMockup[orientation]
-                        const conf = configuration[size][frame][orientation][zoom]
-                        const bgSrc = "backgrounds/" + conf.pop("image")
-                        const promise = fetchCompositionImage(bgSrc, fgSrc, [600, 600], conf)
-
-                        promise.then((result) => {
-                            const contentElement = document.getElementById('content')
-                            const imageElement = document.createElement('img')
-                            imageElement.setAttribute('src', result)
-                            contentElement.appendChild(imageElement)
-                        })
+            const conf = {
+                baseWidth: 3000,
+                baseHeight: 3000,
+                images: [
+                    {
+                        xPos: 0,
+                        yPos: 0,
+                        width: 3000,
+                        height: 3000
+                    },
+                    {
+                        xPos: 778,
+                        yPos: 442,
+                        width: 1437,
+                        height: 2021
                     }
-                }
+                ]
             }
+            const images = ["backgrounds/1007_DMA_Product Mockups_v2_1500px2.jpg", "portrait.png"]
+            const promise = fetchCompositionImage(images, [600, 600], conf)
+
+            promise.then((result) => {
+                const contentElement = document.getElementById('content')
+                const imageElement = document.createElement('img')
+                imageElement.setAttribute('src', result)
+                contentElement.appendChild(imageElement)
+            })
         }
 
         /* *********************************
          * Image instance feed solution.
          ********************************* */
         if (solution === 'image') {
-            const bg = "backgrounds/1007_DMA_Product Mockups_v2_1500px2.jpg"
-            const fg = "portrait.png"
-            const conf = {bgWidth: 3000, bgHeight: 3000, paintWidth: 1437, paintHeight: 2021, xPos: 778, yPos: 442}
+            const conf = {
+                baseWidth: 3000,
+                baseHeight: 3000,
+                images: [
+                    {
+                        xPos: 0,
+                        yPos: 0,
+                        width: 3000,
+                        height: 3000
+                    },
+                    {
+                        xPos: 778,
+                        yPos: 442,
+                        width: 1437,
+                        height: 2021
+                    }
+                ]
+            }
 
-            const fgImagePromise = loadImage(fg)
+            const fgImagePromise = loadImage("portrait.png")
             fgImagePromise.then((fg) => {
-                const promise = fetchCompositionImage(bg, fg, [600, 600], conf)
+
+                const images = ["backgrounds/1007_DMA_Product Mockups_v2_1500px2.jpg",  fg]
+
+                const promise = fetchCompositionImage(images, [600, 600], conf)
                 promise.then((result) => {
                     const contentElement = document.getElementById('content')
                     const imageElement = document.createElement('img')
@@ -272,12 +215,37 @@ $(function () {
          * Promise feed solution.
          ********************************* */
         if (solution === 'promise') {
-            const bg = "backgrounds/1007_DMA_Product Mockups_v2_1500px2.jpg"
-            const fg = "portrait.png"
-            const conf = {bgWidth: 3000, bgHeight: 3000, paintWidth: 1437, paintHeight: 2021, xPos: 778, yPos: 442}
-            const fgPromise = loadImage(fg)
+            const conf = {
+                baseWidth: 3000,
+                baseHeight: 3000,
+                images: [
+                    {
+                        xPos: 0,
+                        yPos: 0,
+                        width: 3000,
+                        height: 3000
+                    },
+                    {
+                        xPos: 778,
+                        yPos: 442,
+                        width: 1437,
+                        height: 2021
+                    },
+                    {
+                        xPos: 778,
+                        yPos: 442,
+                        width: 1437,
+                        height: 2021
+                    }
+                ]
+            }
+            const images = [
+                "backgrounds/1007_DMA_Product Mockups_v2_1500px2.jpg",
+                loadImage("portrait.png"),
+                loadImage("signature.png")
+            ]
 
-            const promise = fetchCompositionImage(bg, fgPromise, [600, 600], conf)
+            const promise = fetchCompositionImage(images, [600, 600], conf)
             promise.then((result) => {
                 const contentElement = document.getElementById('content')
                 const imageElement = document.createElement('img')
@@ -286,5 +254,5 @@ $(function () {
             })
         }
     }
-    main("promise")
+    main("string")
 })
