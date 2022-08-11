@@ -145,8 +145,8 @@ $(function () {
      * Asynchronously load foreground and background images, create canvas,
      * draw images with desired parameters and return Promise for result.
      *
-     * @param {String | Image} background
-     * @param {String | Image} foreground
+     * @param {String | Image | Promise} background
+     * @param {String | Image | Promise} foreground
      * @param {Array<Number>} size
      * @param {Object} ctx
      * @param {Object} config
@@ -158,15 +158,14 @@ $(function () {
                 if (typeof entry === 'string')
                     // Expecting image url.
                     return loadImage(entry)
-                else if (typeof entry === 'object' && !!entry['src'])
-                    // Expecting instance of Image object.
+                else if (typeof entry === 'object' && (!!entry['src'] || entry instanceof Promise))
+                    // Expecting instance of Image object or Promise.
                     return entry
                 throw 'Invalid type of input object. Requires {String | Image}';
 
             })).then(
                 (images) => {
-                    const bgImage = images[0]
-                    const fgImage = images[1]
+                    const [bgImage, fgImage] = [images[0], images[1]]
 
                     ctx.canvas.width = config.bgWidth
                     ctx.canvas.height = config.bgHeight
@@ -206,8 +205,8 @@ $(function () {
     /**
      * Create composition of two images and return promise on such composition.
      *
-     * @param {String | Image} background
-     * @param {String | Image} foreground
+     * @param {String | Image | Promise} background
+     * @param {String | Image | Promise} foreground
      * @param {Array<Number>} size
      * @param {Object} config
      * @return {Object}
@@ -245,10 +244,6 @@ $(function () {
                             imageElement.setAttribute('src', result)
                             contentElement.appendChild(imageElement)
                         })
-
-                        promise.then((result) => {
-                            console.log(result)
-                        })
                     }
                 }
             }
@@ -273,6 +268,23 @@ $(function () {
                 })
             })
         }
+        /* *********************************
+         * Promise feed solution.
+         ********************************* */
+        if (solution === 'promise') {
+            const bg = "backgrounds/1007_DMA_Product Mockups_v2_1500px2.jpg"
+            const fg = "portrait.png"
+            const conf = {bgWidth: 3000, bgHeight: 3000, paintWidth: 1437, paintHeight: 2021, xPos: 778, yPos: 442}
+            const fgPromise = loadImage(fg)
+
+            const promise = fetchCompositionImage(bg, fgPromise, [600, 600], conf)
+            promise.then((result) => {
+                const contentElement = document.getElementById('content')
+                const imageElement = document.createElement('img')
+                imageElement.setAttribute('src', result)
+                contentElement.appendChild(imageElement)
+            })
+        }
     }
-    main("string")
+    main("promise")
 })
