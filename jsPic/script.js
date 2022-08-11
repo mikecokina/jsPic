@@ -110,8 +110,8 @@ $(function () {
         for (const value of config.images) {
             value.xPos = Math.ceil(scale_w * value.xPos)
             value.yPos = Math.ceil(scale_h * value.yPos)
-            value.width = Math.ceil(scale_w * value.width)
-            value.height = Math.ceil(scale_h * value.height)
+            value.width = Math.floor(scale_w * value.width)
+            value.height = Math.floor(scale_h * value.height)
         }
         return config
     }
