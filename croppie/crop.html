@@ -1,0 +1,316 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+      integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+
+<script src="https://cdn.instyle.ai/static/croppie/js/croppie.js"></script>
+<link rel="stylesheet" href="https://cdn.instyle.ai/static/croppie/css/croppie.css"/>
+
+
+<style>
+    #upload-input {
+        opacity: 0;
+    }
+
+    .image-area {
+        /*border: 2px dashed rgba(0, 0, 0, 0.7);*/
+        padding: 1rem;
+        position: relative;
+    }
+
+
+    .image-area img {
+        z-index: 2;
+        position: relative;
+    }
+
+    .modal-dialog {
+        transform: translateY(15%) !important;
+    }
+
+</style>
+
+
+<div id="image-result-container" class="container mt-3">
+    <div class="row">
+        <div class="col-lg-6 mx-auto">
+            <div class="mt-0 mb-1">
+                <div class="">
+                    <div id="image-cropped-content">
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-lg-6 mx-auto">
+
+            <!-- Upload image input-->
+            <div class="input-group mb-3 px-1 py-1 rounded-pill bg-white shadow-sm" style="border: solid 1px black">
+                <input onchange="onInputChange();" id="upload-input" type="file" class="form-control border-0">
+
+                <div class="input-group-append">
+                    <label for="upload-input" class="btn btn-secondary m-0 rounded-pill rounded-left px-4">
+                        <i class="fa fa-cloud-upload mr-1"></i>
+                        <small class="text-uppercase font-weight-bold">Upload photo</small>
+
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal -->
+<div class="modal fade" id="croppieModal" tabindex="-1" role="dialog" aria-labelledby="croppieModalLabel"
+     aria-hidden="true">
+    <!--<div class="" id="croppieModal" tabindex="-1" role="dialog" aria-labelledby="croppieModalLabel" aria-hidden="true">-->
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="croppieModalLabel">Adjust image</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Uploaded image area-->
+                <div class="image-area mt-0 mb-1">
+                    <div class="">
+                        <div id="image-croppie-container" class="img-fluid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="landscape-btn" type="button" class="btn btn-light">
+                    <i class="fa fa-picture-o mr-1"></i> Landscape
+                </button>
+                <button id="portrait-btn" type="button" class="btn btn-light">
+                    <i class="fa fa-file-image-o mr-1" aria-hidden="true"></i> Portrait
+                </button>
+                <button id="crop-btn" type="button" class="btn btn-primary">
+                    <i class="fa fa-crop mr-1"></i> Crop
+                </button>
+            </div>
+            <input type="hidden" id="crop-orientation-input" value="landscape"/>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    /* *********************************
+     * Configuration.
+     ********************************* */
+    const conf = {
+        viewportOptions: {
+            landscape: {
+                width: 360,
+                height: 256,
+                type: 'square'
+            },
+            portrait: {
+                width: 172,
+                height: 256,
+                type: 'square'
+            }
+        },
+        resultOptions: {
+            landscape: {
+                width: 512,
+                height: 344,
+            },
+            portrait: {
+                width: 344,
+                height: 512,
+            }
+        }
+    }
+
+    /* *********************************
+     * jQuery elements.
+     ********************************* */
+    const portraitBtnjQ = $('#portrait-btn')
+    const landscapeBtnjQ = $('#landscape-btn')
+    const cropBtnjQ = $('#crop-btn')
+    const cropOrientInput = $('#crop-orientation-input')
+    const resultDivContainerjQ = $('#image-result-container')
+    const croppieModaljQ = $('#croppieModal')
+    const fileInputjQ = $('#upload-input')
+
+    /* *********************************
+     * File input.
+     ********************************* */
+    const fileInput = document.getElementById('upload-input')
+    const croppieDivContainer = document.getElementById('image-croppie-container')
+
+    /* *********************************
+     * Default onload behavior.
+     ********************************* */
+    landscapeBtnjQ.prop("disabled", true)
+
+    /* *********************************
+     * Functions definitions.
+     ********************************* */
+    /**
+     * Removes childs of given node
+     *
+     * @param {Object} parent
+     */
+    const removeAllChildNodes = (parent) => {
+        while (parent.firstChild) {
+            parent.removeChild(parent.firstChild)
+        }
+    }
+
+    /**
+     * Reads file and returns content.
+     *
+     * @param {Object} input
+     * @return {Promise<String>}
+     */
+    const readImageData = (input) => {
+        return new Promise((resolve, reject) => {
+            const fr = new FileReader()
+            fr.addEventListener("load", () => { resolve(fr.result) })
+            fr.addEventListener("error", (err) => { reject(err) })
+            fr.readAsDataURL(input.files[0])
+        })
+    }
+
+    /**
+     * Destroy Croppie instance stored in window object.
+     */
+    const destroyCroppie = () => {
+        if (!!!window.croppieInstance) { return }
+        window.croppieInstance.destroy()
+        window.croppieInstance = null
+    }
+
+    /**
+     * Creates Croppie instance.
+     * 
+     * @param {Object} input
+     * @param {String} viewport
+     */
+    const makeCroppie = (input, viewport = 'landscape') => {
+        // Reset.
+        resultDivContainerjQ.hide()
+        destroyCroppie()
+        removeAllChildNodes(croppieDivContainer)
+
+        // Load data.
+        readImageData(input).then((imageData) => {
+            // Create new image element.
+            const image = new Image()
+            image.src = String(imageData)
+            
+            // Make Croppie optiones based on landscape/portraite choise.
+            const options = {
+                viewport: {...conf.viewportOptions[viewport]},
+                boundary: {width: "100%", height: 400},
+            }
+            
+            // Append image to 
+            croppieDivContainer.appendChild(image)
+            window.croppieInstance = new Croppie(image, options)
+        })
+    }
+
+    /**
+     * Shows Croppie modal.
+     */
+    const showModal = () => { croppieModaljQ.modal('show') }
+
+    /**
+     * Hides Croppie modal.
+     */
+    const hideModal = () => { croppieModaljQ.modal('hide') }
+
+    /**
+     * Invokes show modal on file input change.
+     */
+    const onInputChange = () => { showModal() }
+
+
+    /* *********************************
+    * Landscape/Portarit buttons behavior.
+    ********************************* */
+    portraitBtnjQ.on('click', function (e) {
+        makeCroppie(fileInput, 'portrait')
+        portraitBtnjQ.prop("disabled", true)
+        landscapeBtnjQ.prop("disabled", false)
+        cropOrientInput.val('portrait')
+    })
+
+    landscapeBtnjQ.on('click', function (e) {
+        makeCroppie(fileInput, 'landscape')
+        portraitBtnjQ.prop("disabled", false)
+        landscapeBtnjQ.prop("disabled", true)
+        cropOrientInput.val('landscape')
+    })
+
+    /* *********************************
+     * Crop button control.
+     ********************************* */
+    cropBtnjQ.on('click', function (e) {
+        // Ignore if no croppie instance exists.
+        if (!!!window.croppieInstance) { return }
+
+        // Proceed.
+        const orientation = cropOrientInput.val()
+        const resultArea = document.getElementById('image-cropped-content')
+        const resOpts = {type: 'base64', size: {...conf.resultOptions[orientation]}, quality: 1}
+        const cropped = window.croppieInstance.result(resOpts)
+        const resultImage = new Image()
+
+        // Cleans result area of possible previous crops.
+        removeAllChildNodes(resultArea)
+
+        // Waits for result from croppie, stores and shows result area.
+        cropped.then((imageData) => {
+            resultImage.src = String(imageData)
+            resultImage.className = "img-fluid mx-auto d-block img-thumbnail"
+            resultArea.appendChild(resultImage)
+
+            // Hides modal when result is prepared.
+            hideModal()
+            // Shows container with result.
+            resultDivContainerjQ.show()
+        })
+    })
+
+    /* *********************************
+     * Modal shown/hidden behavior.
+     ********************************* */
+    croppieModaljQ.on('shown.bs.modal', function (e) {
+        // Executes Croppie creation when modal is visible (in callback) and avoid issues.
+        makeCroppie(fileInput)
+    }).on('hidden.bs.modal', function () {
+        // Resets file input. It is required for modal pop-up when same file
+        // is used as before, otherwise, there won't be onchange triggered.
+        fileInputjQ.val(null)
+        // Destroys Croppie instance, clean modal content and reset
+        // landscape/portrait buttons and info input element.
+        destroyCroppie()
+        removeAllChildNodes(croppieDivContainer)
+        cropOrientInput.val('landscape')
+        portraitBtnjQ.prop('disabled', false)
+        landscapeBtnjQ.prop('disabled', true)
+    })
+
+
+
+</script>
+

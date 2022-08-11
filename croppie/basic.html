@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CropMe</title>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+            integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+            crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="croppie.css">
+    <script src="croppie.js"></script>
+</head>
+
+<body>
+
+<div id="container"></div>
+<img id="image" src="../landscape.png" width="512" height="344" />
+
+<script>
+    const image = document.getElementById('image')
+    const options = {
+        viewport: {
+            width: 150,
+            height: 200
+        },
+        boundary: {
+            width: 300,
+            height: 300
+        },
+    }
+    const croppie = new Croppie(image, options);
+</script>
+
+</body>
+</html>
